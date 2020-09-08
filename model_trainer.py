@@ -232,7 +232,7 @@ class ValFigCallback(keras.callbacks.Callback):
         sample = next(sample)
         sample_x = sample[0]
         sample_y = sample[1]
-        predict = self.model(sample_x, training=False)
+        predict = self.model(sample_x, training=False).numpy()
         fig = plt.figure()
         for i in range(3):
             ax = fig.add_subplot(3,3,3*i+1)
