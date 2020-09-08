@@ -4,6 +4,9 @@ import adipose_models
 import model_lr
 import argparse
 import tensorflow as tf
+import os
+import imageio as io
+import json
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-m','--model', dest='model')
@@ -25,19 +28,26 @@ if args.mem_growth:
         except RuntimeError as e:
             print(e)
 
-with np.load('cell_mask_data.npz') as data:
-    X = data['img']
-    Y = data['mask']
+    img_names = os.listdir('data/done')
+    img = []
+    img_name_dict = {}
+    for idx, name in enumerate(img_names):
+        img.append(io.imread('data/done/'+name))
+        img_name_dict[name] = idx
 
-print('X shape:',X.shape)
-print('Y shape:',Y.shape)
+    json_names = os.listdir('data/save')
+    data = []
+    for name in json_names[:]:
+        with open('data/save/'+name,'r') as j:
+            data.extend(json.load(j))
+    for datum in data :
+        datum['image'] = img_name_dict[datum['image']]
 
-X_train = X[:1200]
-Y_train = Y[:1200]
-X_val = X[1200:1350]
-Y_val = Y[1200:1350]
-X_test = X[1350:]
-Y_test = Y[1350:]
+test_num = len(data) // 10
+
+data_train = data[:-2*test_num]
+data_val = data[-2*test_num:-test_num]
+data_test = data[-test_num:]
 
 model_f = getattr(adipose_models, args.model)
 lr_f = getattr(model_lr, args.lr)
@@ -51,11 +61,11 @@ kwargs['lr_f'] = lr_f
 kwargs['name'] = name
 kwargs['epochs'] = epochs
 kwargs['batch_size'] = 32
-kwargs['X_train'] = X_train
-kwargs['Y_train'] = Y_train
-kwargs['val_data'] = (X_val, Y_val)
+kwargs['train_data'] = data_train
+kwargs['val_data'] = data_val
+kwargs['img'] = img
+kwargs['img_size'] = (200,200)
 kwargs['mixed_float'] = mixed_float
 kwargs['notebook'] = False
-kwargs['augment'] = True
 
 run_training(**kwargs)

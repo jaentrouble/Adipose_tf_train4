@@ -6,6 +6,9 @@ from custom_tqdm import TqdmNotebookCallback
 from tqdm.keras import TqdmCallback
 import albumentations as A
 import random
+import io
+import matplotlib.pyplot as plt
+from functools import partial
 
 class AdiposeModel(keras.Model):
     def __init__(self, inputs, model_function):
@@ -201,18 +204,56 @@ def get_model(model_f):
     )
     return test_model
 
+def plot_to_image(figure):
+    """Converts the matplotlib plot specified by 'figure' to a PNG image and
+    returns it. The supplied figure is closed and inaccessible after this call."""
+    # Save the plot to a PNG in memory.
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    # Closing the figure prevents it from being displayed directly inside
+    # the notebook.
+    plt.close(figure)
+    buf.seek(0)
+    # Convert PNG buffer to TF image
+    image = tf.image.decode_png(buf.getvalue(), channels=4)
+    # Add the batch dimension
+    image = tf.expand_dims(image, 0)
+    return image
+
+def val_result_fig(model, val_ds):
+    sample = val_ds.batch(3).take(1)
+    sample_np = sample.as_numpy_iterator()
+    predict = model.predict(sample)
+    fig = plt.figure()
+    for i,s in enumerate(sample_np):
+        ax = fig.add_subplot(5,3,3*i+1)
+        img = s[0][0].swapaxes(0,1)
+        ax.imshow(img)
+        ax = fig.add_subplot(5,3,3*i+2)
+        true_mask = s[1][0].swapaxes(0,1)
+        ax.imshow(true_mask, cmap='binary')
+        ax = fig.add_subplot(5,3,3*i+3)
+        p = predict[i].swapaxes(0,1)
+        ax.imshow(p, cmap='binary')
+    return fig
+
+def log_pred_img(model, val_ds, filewriter, epoch, logs):
+    image = plot_to_image(val_result_fig(model,val_ds))
+    with filewriter.as_default():
+        tf.summary.image('val prediction', image, step=epoch)
+
 def run_training(
         model_f, 
         lr_f, 
         name, 
         epochs, 
         batch_size, 
-        X_train, 
-        Y_train, 
+        train_data,
         val_data,
+        img,
+        img_size,
         mixed_float = True,
         notebook = True,
-        augment = True,
     ):
     """
     val_data : (X_val, Y_val) tuple
@@ -256,38 +297,33 @@ def run_training(
     else:
         tqdm_callback = TqdmCallback()
 
-    if augment:
-        train_ds = create_train_dataset(X_train, Y_train, batch_size)
-        mymodel.fit(
-            x=train_ds,
-            epochs=epochs,
-            steps_per_epoch=X_train.shape[0]//batch_size,
-            callbacks=[
-                tensorboard_callback,
-                lr_callback,
-                save_callback,
-                tqdm_callback,
-            ],
-            verbose=0,
-            validation_data=val_data,
+    image_writer = tf.summary.create_file_writer(logdir+'val_image')
+    image_callback = keras.callbacks.LambdaCallback(
+        on_epoch_end=partial(
+            log_pred_img,
+            model=mymodel,
+            val_ds=val_ds,
+            filewriter=image_writer,
         )
+    )
 
+    train_ds = create_train_dataset(img, train_data, img_size,batch_size)
+    val_ds = create_train_dataset(img, val_data, img_size,batch_size,True)
+    mymodel.fit(
+        x=train_ds,
+        epochs=epochs,
+        steps_per_epoch=len(train_ds)//batch_size,
+        callbacks=[
+            tensorboard_callback,
+            lr_callback,
+            save_callback,
+            tqdm_callback,
+            image_callback,
+        ],
+        verbose=0,
+        validation_data=val_ds,
+    )
 
-    else:
-        mymodel.fit(
-            x=X_train,
-            y=Y_train,
-            epochs=epochs,
-            batch_size=batch_size,
-            callbacks=[
-                tensorboard_callback,
-                lr_callback,
-                save_callback,
-                tqdm_callback,
-            ],
-            verbose=0,
-            validation_data=val_data
-        )
 
     print('Took {} seconds'.format(time.time()-st))
 
