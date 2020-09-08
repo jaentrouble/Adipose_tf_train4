@@ -224,7 +224,7 @@ def plot_to_image(figure):
 def val_result_fig(model, val_ds):
     sample = val_ds.batch(3).take(1)
     sample_np = sample.as_numpy_iterator()
-    predict = model.predict(sample)
+    predict = model.predict(sample[0])
     fig = plt.figure()
     for i,s in enumerate(sample_np):
         ax = fig.add_subplot(5,3,3*i+1)
