@@ -209,7 +209,7 @@ class ValFigCallback(keras.callbacks.Callback):
     def __init__(self, val_ds, logdir):
         super().__init__()
         self.val_ds = val_ds
-        self.filewriter = tf.summary.create_file_writer(logdir+'/validation')
+        self.filewriter = tf.summary.create_file_writer(logdir+'/val_image')
 
     def plot_to_image(self, figure):
         """Converts the matplotlib plot specified by 'figure' to a PNG image and
