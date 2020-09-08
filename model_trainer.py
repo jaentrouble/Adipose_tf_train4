@@ -244,7 +244,7 @@ class ValFigCallback(keras.callbacks.Callback):
         return fig
 
     def on_epoch_end(self, epoch, logs=None):
-        image = self.plot_to_image(self.val_result_fig(model,val_ds))
+        image = self.plot_to_image(self.val_result_fig())
         with filewriter.as_default():
             tf.summary.image('val prediction', image, step=epoch)
 
