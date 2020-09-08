@@ -236,13 +236,13 @@ class ValFigCallback(keras.callbacks.Callback):
         fig = plt.figure()
         for i in range(3):
             ax = fig.add_subplot(3,3,3*i+1)
-            img = sample_x[i].swapaxes(0,1)
+            img = sample_x[i]
             ax.imshow(img)
             ax = fig.add_subplot(3,3,3*i+2)
-            true_mask = sample_y[i].swapaxes(0,1)
+            true_mask = sample_y[i]
             ax.imshow(true_mask, cmap='binary')
             ax = fig.add_subplot(3,3,3*i+3)
-            p = predict[i].swapaxes(0,1)
+            p = predict[i]
             ax.imshow(p, cmap='binary')
         return fig
 
