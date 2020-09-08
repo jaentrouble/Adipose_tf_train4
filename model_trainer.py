@@ -305,7 +305,7 @@ def run_training(
     image_callback = keras.callbacks.LambdaCallback(
         on_epoch_end=partial(
             log_pred_img,
-            model=mymodel,
+            # model=mymodel,
             val_ds=val_ds,
             filewriter=image_writer,
         )
