@@ -297,6 +297,9 @@ def run_training(
     else:
         tqdm_callback = TqdmCallback()
 
+    train_ds = create_train_dataset(img, train_data, img_size,batch_size)
+    val_ds = create_train_dataset(img, val_data, img_size,batch_size,True)
+    
     image_writer = tf.summary.create_file_writer(logdir+'val_image')
     image_callback = keras.callbacks.LambdaCallback(
         on_epoch_end=partial(
@@ -307,8 +310,6 @@ def run_training(
         )
     )
 
-    train_ds = create_train_dataset(img, train_data, img_size,batch_size)
-    val_ds = create_train_dataset(img, val_data, img_size,batch_size,True)
     mymodel.fit(
         x=train_ds,
         epochs=epochs,
