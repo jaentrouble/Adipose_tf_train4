@@ -28,20 +28,20 @@ if args.mem_growth:
         except RuntimeError as e:
             print(e)
 
-    img_names = os.listdir('data/done')
-    img = []
-    img_name_dict = {}
-    for idx, name in enumerate(img_names):
-        img.append(io.imread('data/done/'+name))
-        img_name_dict[name] = idx
+img_names = os.listdir('data/done')
+img = []
+img_name_dict = {}
+for idx, name in enumerate(img_names):
+    img.append(io.imread('data/done/'+name))
+    img_name_dict[name] = idx
 
-    json_names = os.listdir('data/save')
-    data = []
-    for name in json_names[:]:
-        with open('data/save/'+name,'r') as j:
-            data.extend(json.load(j))
-    for datum in data :
-        datum['image'] = img_name_dict[datum['image']]
+json_names = os.listdir('data/save')
+data = []
+for name in json_names[:]:
+    with open('data/save/'+name,'r') as j:
+        data.extend(json.load(j))
+for datum in data :
+    datum['image'] = img_name_dict[datum['image']]
 
 test_num = len(data) // 10
 
