@@ -9,6 +9,7 @@ import random
 import io
 import matplotlib.pyplot as plt
 from functools import partial
+import numpy as np
 
 class AdiposeModel(keras.Model):
     def __init__(self, inputs, model_function):
@@ -299,7 +300,7 @@ def run_training(
 
     train_ds = create_train_dataset(img, train_data, img_size,batch_size)
     val_ds = create_train_dataset(img, val_data, img_size,batch_size,True)
-    
+
     image_writer = tf.summary.create_file_writer(logdir+'val_image')
     image_callback = keras.callbacks.LambdaCallback(
         on_epoch_end=partial(
