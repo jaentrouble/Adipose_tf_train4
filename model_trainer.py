@@ -324,6 +324,7 @@ def run_training(
         ],
         verbose=0,
         validation_data=val_ds,
+        validation_steps=10,
     )
 
 
