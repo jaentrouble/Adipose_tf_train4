@@ -205,43 +205,48 @@ def get_model(model_f):
     )
     return test_model
 
-def plot_to_image(figure):
-    """Converts the matplotlib plot specified by 'figure' to a PNG image and
-    returns it. The supplied figure is closed and inaccessible after this call."""
-    # Save the plot to a PNG in memory.
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png')
-    # Closing the figure prevents it from being displayed directly inside
-    # the notebook.
-    plt.close(figure)
-    buf.seek(0)
-    # Convert PNG buffer to TF image
-    image = tf.image.decode_png(buf.getvalue(), channels=4)
-    # Add the batch dimension
-    image = tf.expand_dims(image, 0)
-    return image
+class ValFigCallback(keras.callbacks.Callback):
+    def __init__(self, val_ds, logdir):
+        super().__init__()
+        self.val_ds = val_ds
+        self.filewriter = tf.summary.create_file_writer(logdir+'val_image')
 
-def val_result_fig(model, val_ds):
-    sample = val_ds.batch(3).take(1)
-    sample_np = sample.as_numpy_iterator()
-    predict = model.predict(sample[0])
-    fig = plt.figure()
-    for i,s in enumerate(sample_np):
-        ax = fig.add_subplot(5,3,3*i+1)
-        img = s[0][0].swapaxes(0,1)
-        ax.imshow(img)
-        ax = fig.add_subplot(5,3,3*i+2)
-        true_mask = s[1][0].swapaxes(0,1)
-        ax.imshow(true_mask, cmap='binary')
-        ax = fig.add_subplot(5,3,3*i+3)
-        p = predict[i].swapaxes(0,1)
-        ax.imshow(p, cmap='binary')
-    return fig
+    def plot_to_image(self, figure):
+        """Converts the matplotlib plot specified by 'figure' to a PNG image and
+        returns it. The supplied figure is closed and inaccessible after this call."""
+        # Save the plot to a PNG in memory.
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        # Closing the figure prevents it from being displayed directly inside
+        # the notebook.
+        plt.close(figure)
+        buf.seek(0)
+        # Convert PNG buffer to TF image
+        image = tf.image.decode_png(buf.getvalue(), channels=4)
+        # Add the batch dimension
+        image = tf.expand_dims(image, 0)
+        return image
 
-def log_pred_img(model, val_ds, filewriter, epoch, logs):
-    image = plot_to_image(val_result_fig(model,val_ds))
-    with filewriter.as_default():
-        tf.summary.image('val prediction', image, step=epoch)
+    def val_result_fig(self):
+        sample = self.val_ds.take(3).as_numpy_iterator()
+        fig = plt.figure()
+        for i,s in enumerate(sample):
+            ax = fig.add_subplot(5,3,3*i+1)
+            img = s[0][0].swapaxes(0,1)
+            ax.imshow(img)
+            ax = fig.add_subplot(5,3,3*i+2)
+            true_mask = s[1][0].swapaxes(0,1)
+            ax.imshow(true_mask, cmap='binary')
+            ax = fig.add_subplot(5,3,3*i+3)
+            predict = self.model(s[0][0], training=False)
+            p = predict[0].swapaxes(0,1)
+            ax.imshow(p, cmap='binary')
+        return fig
+
+    def on_epoch_end(self, epoch, logs=None):
+        image = self.plot_to_image(self.val_result_fig(model,val_ds))
+        with filewriter.as_default():
+            tf.summary.image('val prediction', image, step=epoch)
 
 def run_training(
         model_f, 
@@ -301,20 +306,13 @@ def run_training(
     train_ds = create_train_dataset(img, train_data, img_size,batch_size)
     val_ds = create_train_dataset(img, val_data, img_size,batch_size,True)
 
-    image_writer = tf.summary.create_file_writer(logdir+'val_image')
-    image_callback = keras.callbacks.LambdaCallback(
-        on_epoch_end=partial(
-            log_pred_img,
-            mymodel,
-            val_ds,
-            image_writer,
-        )
-    )
+    image_callback = ValFigCallback(val_ds, logdir)
 
     mymodel.fit(
         x=train_ds,
         epochs=epochs,
-        steps_per_epoch=len(train_data)//batch_size,
+        # steps_per_epoch=len(train_data)//batch_size,
+        steps_per_epoch=10,
         callbacks=[
             tensorboard_callback,
             lr_callback,
