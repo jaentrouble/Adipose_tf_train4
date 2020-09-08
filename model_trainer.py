@@ -228,18 +228,21 @@ class ValFigCallback(keras.callbacks.Callback):
         return image
 
     def val_result_fig(self):
-        sample = self.val_ds.take(3).as_numpy_iterator()
+        sample = self.val_ds.take(1).as_numpy_iterator()
+        sample = next(sample)
+        sample_x = sample[0]
+        sample_y = sample[1]
+        predict = self.model(sample_x, training=False)
         fig = plt.figure()
-        for i,s in enumerate(sample):
-            ax = fig.add_subplot(5,3,3*i+1)
-            img = s[0][0].swapaxes(0,1)
+        for i in range(3):
+            ax = fig.add_subplot(3,3,3*i+1)
+            img = sample_x[i].swapaxes(0,1)
             ax.imshow(img)
-            ax = fig.add_subplot(5,3,3*i+2)
-            true_mask = s[1][0].swapaxes(0,1)
+            ax = fig.add_subplot(3,3,3*i+2)
+            true_mask = sample_y[i].swapaxes(0,1)
             ax.imshow(true_mask, cmap='binary')
-            ax = fig.add_subplot(5,3,3*i+3)
-            predict = self.model(s[0][0], training=False)
-            p = predict[0].swapaxes(0,1)
+            ax = fig.add_subplot(3,3,3*i+3)
+            p = predict[i].swapaxes(0,1)
             ax.imshow(p, cmap='binary')
         return fig
 
