@@ -67,6 +67,7 @@ def lr_step6(epoch, lr):
     else :
         if epoch % 5 == 0 :
             lr = lr * 0.95
+    return lr
 
 def lr_mul_inv(epoch, lr):
     return 0.01 / (epoch+1)
