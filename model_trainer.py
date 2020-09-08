@@ -5,7 +5,7 @@ import time
 from custom_tqdm import TqdmNotebookCallback
 from tqdm.keras import TqdmCallback
 import albumentations as A
-
+import random
 
 class AdiposeModel(keras.Model):
     def __init__(self, inputs, model_function):
@@ -29,21 +29,66 @@ class AdiposeModel(keras.Model):
         return tf.math.sigmoid(self.logits(inputs, training=training))
 
 class AugGenerator():
-    def __init__(self, X, Y):
-        self.X = X
-        self.Y = Y
-        self.n = self.X.shape[0]
+    """An iterable generator that makes data
+
+    NOTE: 
+        Every img is reshaped to img_size
+    NOTE: 
+        The position value is like pygame. (width, height),
+        which does not match with common image order (height,width)
+
+        Image input is expected to be the shape of (height, width),
+        i.e. the transformation to match two is handled in here automatically
+    NOTE: 
+        THE OUTPUT IMAGE WILL BE (WIDTH, HEIGHT)
+        It is because pygame has shape (width, height)
+    return
+    ------
+    X : np.array, dtype= np.uint8
+        shape : (WIDTH, HEIGHT, 3)
+    Y : np.array, dtype= np.float32
+    """
+    def __init__(self, img, data, img_size):
+        """ 
+        arguments
+        ---------
+        img : list
+            list of images, in the original size (height, width, 3)
+        data : list of dict
+            Each dict has :
+                'image' : index of the image. The index should match with img
+                'mask' : [xx, yy]
+                        IMPORTANT : (WIDTH, HEIGHT)
+                'box' : [[xmin, ymin], [xmax,ymax]]
+                'size' : the size of the image that the data was created with
+                        IMPORTANT : (WIDTH, HEIGHT)
+        img_size : tuple
+            Desired output image size
+            The axes will be swapped to match pygame.
+            IMPORTANT : (WIDTH, HEIGHT)
+        """
+        self.image = img
+        self.data = data
+        self.n = len(data)
+        self.output_size = img_size
         self.aug = A.Compose([
             A.OneOf([
                 A.RandomGamma((40,200),p=1),
-                A.RandomBrightness(p=1),
-                A.RandomContrast(p=1),
-                A.RGBShift(p=1),
+                A.RandomBrightness(limit=0.5, p=1),
+                A.RandomContrast(limit=0.5,p=1),
+                A.RGBShift(40,40,40,p=1),
+                A.Downscale(scale_min=0.25,scale_max=0.5,p=1),
+                A.ChannelShuffle(p=1),
             ], p=0.8),
+            A.InvertImg(p=0.5),
             A.VerticalFlip(p=0.5),
-            A.RandomRotate90(p=1)
-        ])
-        self.idx = 0
+            A.RandomRotate90(p=1),
+            A.Resize(img_size[0], img_size[1]),
+        ],
+        )
+        for datum in data:
+            datum['mask_min'] = np.min(datum['mask'], axis=1)
+            datum['mask_max'] = np.max(datum['mask'], axis=1) + 1
 
     def __iter__(self):
         return self
@@ -52,23 +97,86 @@ class AugGenerator():
         return self
 
     def __next__(self):
+        idx = random.randrange(0,self.n)
+        datum = self.data[idx]
+        image = self.image[datum['image']]
+        x_min, y_min = datum['mask_min']
+        x_max, y_max = datum['mask_max']
+
+        crop_min = (max(0, x_min-random.randrange(5,30)),
+                    max(0, y_min-random.randrange(5,30)))
+        crop_max = (min(datum['size'][0],x_max+random.randrange(5,30)),
+                    min(datum['size'][1],y_max+random.randrange(5,30)))
+        new_mask = np.zeros(np.subtract(crop_max, crop_min), dtype=np.float32)
+        xx, yy = np.array(datum['mask'],dtype=np.int32)
+        m_xx = xx - crop_min[0]
+        m_yy = yy - crop_min[1]
+        new_mask[m_xx,m_yy] = 1
+
+        if np.any(np.not_equal(image.shape[:2], np.flip(datum['size']))):
+            row_ratio = image.shape[0] / datum['size'][1]
+            col_ratio = image.shape[1] / datum['size'][0]
+            cx_min = int(col_ratio*crop_min[0])
+            cy_min = int(row_ratio*crop_min[1])
+            
+            cx_max = int(col_ratio*crop_max[0])
+            cy_max = int(row_ratio*crop_max[1])
+
+            cropped_image = np.swapaxes(image[cy_min:cy_max,cx_min:cx_max],0,1)
+        else:
+            cropped_image = np.swapaxes(
+                image[crop_min[1]:crop_max[1],crop_min[0]:crop_max[0]],
+                0, 
+                1,
+            )
+        
         distorted = self.aug(
-            image=self.X[self.idx],
-            mask=self.Y[self.idx],
+            image=cropped_image,
+            mask =new_mask
         )
-        self.idx += 1
-        self.idx = self.idx % self.n
+
         return distorted['image'], distorted['mask']
 
-def create_train_dataset(X, Y, batch_size):
+class ValGenerator(AugGenerator):
+    """Same as AugGenerator, but without augmentation.
+    """
+    def __init__(self, img, data, img_size):
+        """ 
+        arguments
+        ---------
+        img : list
+            list of images, in the original size (height, width, 3)
+        data : list of dict
+            Each dict has :
+                'image' : index of the image. The index should match with img
+                'mask' : [xx, yy]
+                        IMPORTANT : (WIDTH, HEIGHT)
+                'box' : [[xmin, ymin], [xmax,ymax]]
+                'size' : the size of the image that the data was created with
+                        IMPORTANT : (WIDTH, HEIGHT)
+        img_size : tuple
+            Desired output image size
+            The axes will be swapped to match pygame.
+            IMPORTANT : (WIDTH, HEIGHT)
+        """
+        super().__init__(img, data, img_size)
+        self.aug = A.Resize(img_size[0], img_size[1])
+
+def create_train_dataset(img, data, img_size, batch_size, val_data=False):
     autotune = tf.data.experimental.AUTOTUNE
+    if val_data:
+        generator = ValGenerator(img, data, img_size)
+    else:
+        generator = AugGenerator(img, data, img_size)
     dataset = tf.data.Dataset.from_generator(
-        AugGenerator,
-        (tf.uint8, tf.float32),
-        (tf.TensorShape(X.shape[1:]), tf.TensorShape(Y.shape[1:])),
-        args = [X,Y],
+        generator,
+        output_types=(tf.uint8, tf.float32),
+        output_shapes=(
+            tf.TensorShape([img_size[0],img_size[1],3]), 
+            tf.TensorShape(img_size)
+        ),
     )
-    dataset = dataset.shuffle(X.shape[0])
+    dataset = dataset.shuffle(min(len(data),1000))
     dataset = dataset.batch(batch_size, drop_remainder=True)
     dataset = dataset.prefetch(autotune)
     dataset = dataset.repeat()
@@ -184,17 +292,58 @@ def run_training(
     print('Took {} seconds'.format(time.time()-st))
 
 if __name__ == '__main__':
+    import os
+    import imageio as io
+    import json
     import numpy as np
     import matplotlib.pyplot as plt
-    with np.load('cell_mask_data.npz') as data:
-        X = data['img']
-        Y = data['mask']
-    ds = create_train_dataset(X,Y)
+    from skimage import draw
+    import cv2
+    img_names = os.listdir('data/done')
+    img = []
+    img_name_dict = {}
+    for idx, name in enumerate(img_names):
+        img.append(io.imread('data/done/'+name))
+        img_name_dict[name] = idx
+
+    json_names = os.listdir('data/save')
+    data = []
+    for name in json_names[:]:
+        with open('data/save/'+name,'r') as j:
+            data.extend(json.load(j))
+    for datum in data :
+        datum['image'] = img_name_dict[datum['image']]
+
+    # fig = plt.figure()
+    # d_idx = random.randrange(0,len(data)-5)
+    # for i, d in enumerate(data[d_idx:d_idx+5]):
+    #     image = img[d['image']].copy()
+    #     image = cv2.resize(image, (1200,900), interpolation=cv2.INTER_LINEAR)
+    #     mask = d['mask']
+    #     m_idx = random.randrange(0,len(mask[0]))
+    #     pos = (mask[0][m_idx], mask[1][m_idx])
+    #     boxmin = d['box'][0]
+    #     boxmax = d['box'][1]
+    #     rr, cc = draw.disk((pos[1],pos[0]),5)
+    #     image[rr, cc] = [0,255,0]
+    #     rr, cc = draw.rectangle_perimeter((boxmin[1],boxmin[0]),(boxmax[1],boxmax[0]))
+    #     image[rr,cc] = [255,0,0]
+    #     image[mask[1],mask[0]] = [100,100,100]
+    #     ax = fig.add_subplot(5,1,i+1)
+    #     ax.imshow(image)
+    # plt.show()
+
+    # gen = AugGenerator(img, data, (400,400))
+    # s = next(gen)
+
+    ds = create_train_dataset(img, data, (200,200),1, False)
+    sample = ds.take(5).as_numpy_iterator()
     fig = plt.figure()
-    for image, mask in ds.take(1):
-        for idx in range(6):
-            ax = fig.add_subplot(6,2,2*idx+1)
-            ax.imshow(image[idx])
-            ax = fig.add_subplot(6,2,2*idx+2)
-            ax.imshow(mask[idx])
+    for i, s in enumerate(sample):
+        ax = fig.add_subplot(5,2,2*i+1)
+        img = s[0][0].swapaxes(0,1)
+        ax.imshow(img)
+        ax = fig.add_subplot(5,2,2*i+2)
+        mask = s[1][0].swapaxes(0,1)
+        ax.imshow(mask)
     plt.show()
