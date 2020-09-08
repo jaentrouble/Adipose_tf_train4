@@ -209,7 +209,7 @@ class ValFigCallback(keras.callbacks.Callback):
     def __init__(self, val_ds, logdir):
         super().__init__()
         self.val_ds = val_ds
-        self.filewriter = tf.summary.create_file_writer(logdir+'val_image')
+        self.filewriter = tf.summary.create_file_writer(logdir+'/validation')
 
     def plot_to_image(self, figure):
         """Converts the matplotlib plot specified by 'figure' to a PNG image and
@@ -314,8 +314,7 @@ def run_training(
     mymodel.fit(
         x=train_ds,
         epochs=epochs,
-        # steps_per_epoch=len(train_data)//batch_size,
-        steps_per_epoch=10,
+        steps_per_epoch=len(train_data)//batch_size,
         callbacks=[
             tensorboard_callback,
             lr_callback,
