@@ -7,6 +7,8 @@ import tensorflow as tf
 import os
 import imageio as io
 import json
+from pathlib import Path
+import random
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-m','--model', dest='model')
@@ -28,22 +30,35 @@ if args.mem_growth:
         except RuntimeError as e:
             print(e)
 
-img_names = os.listdir('data/done')
+data_dir = Path('data')
+data_groups = next(os.walk(data_dir))[1]
 img = []
-img_name_dict = {}
-for idx, name in enumerate(img_names):
-    img.append(io.imread('data/done/'+name))
-    img_name_dict[name] = idx
-
-json_names = os.listdir('data/save')
 data = []
-for name in json_names[:]:
-    with open('data/save/'+name,'r') as j:
-        data.extend(json.load(j))
-for datum in data :
-    datum['image'] = img_name_dict[datum['image']]
+img_name_dict = {}
+img_idx = 0
+for dg in data_groups[:]:
+    img_dir = data_dir/dg/'done'
+    img_names = os.listdir(img_dir)
+    for name in img_names:
+        img_path = str(img_dir/name)
+        img.append(io.imread(img_path))
+        img_name_dict[img_path] = img_idx
+        img_idx += 1
+
+    json_dir = data_dir/dg/'save'
+    json_names = os.listdir(json_dir)
+    dg_data = []
+    for name in json_names[:]:
+        with open(str(json_dir/name),'r') as j:
+            dg_data.extend(json.load(j))
+    for dg_datum in dg_data :
+        long_img_name = str(img_dir/dg_datum['image'])
+        dg_datum['image'] = img_name_dict[long_img_name]
+    data.extend(dg_data)
 
 test_num = len(data) // 10
+# To make sure data are chosen randomly between data groups
+random.shuffle(data)
 
 data_train = data[:-2*test_num]
 data_val = data[-2*test_num:-test_num]
