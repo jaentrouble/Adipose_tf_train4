@@ -280,7 +280,7 @@ def run_training(
         optimizer='adam',
         loss=loss,
         metrics=[
-            keras.metrics.BinaryAccuracy(threshold=0.1),
+            keras.metrics.BinaryAccuracy(threshold=0.5),
         ]
     )
 
