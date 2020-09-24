@@ -15,6 +15,7 @@ parser.add_argument('-m','--model', dest='model')
 parser.add_argument('-lr', dest='lr')
 parser.add_argument('-n','--name', dest='name')
 parser.add_argument('-e','--epochs', dest='epochs')
+parser.add_argument('-b','--batchsize', dest='batch', default=32)
 parser.add_argument('-mf','--mixedfloat', dest='mixed_float', 
                     action='store_true',default=False)
 parser.add_argument('-mg','--memorygrow', dest='mem_growth',
@@ -69,13 +70,14 @@ lr_f = getattr(model_lr, args.lr)
 name = args.name
 epochs = int(args.epochs)
 mixed_float = args.mixed_float
+batch_size = int(args.batch)
 
 kwargs = {}
 kwargs['model_f'] = model_f
 kwargs['lr_f'] = lr_f
 kwargs['name'] = name
 kwargs['epochs'] = epochs
-kwargs['batch_size'] = 32
+kwargs['batch_size'] = batch_size
 kwargs['train_data'] = data_train
 kwargs['val_data'] = data_val
 kwargs['img'] = img
