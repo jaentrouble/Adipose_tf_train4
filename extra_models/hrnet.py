@@ -65,13 +65,13 @@ class BasicBlock(layers.Layer):
         residual = self.downsample(inputs)
         x = self.conv1(inputs)
         x = self.bn1(x)
-        x = nn.relu(x)
+        x = layers.ReLU()(x)
 
         x = self.conv2(x)
         x = self.bn2(x)
         
         x = tf.add(x, residual)
-        out = nn.relu(x)
+        out = layers.ReLU()(x)
 
         return out
 
@@ -230,7 +230,7 @@ class HighResolutionFusion(layers.Layer):
             x = self.fuse_layers[i][0](inputs[0])
             for j in range(1, self.num_inputs):
                 x = layers.add([x, self.fuse_layers[i][j](inputs[j])])
-            out = nn.relu(x)
+            out = layers.ReLU()(x)
             outputs.append(out)
 
         return outputs
