@@ -330,6 +330,8 @@ def run_training(
 
     print('Took {} seconds'.format(time.time()-st))
 
+    mymodel.evaluate(val_ds, steps=1000)
+
 if __name__ == '__main__':
     import os
     import imageio as io
