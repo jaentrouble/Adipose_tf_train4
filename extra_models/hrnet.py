@@ -3,7 +3,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow import nn
 
-BN_MOMENTUM = 0.99
+BN_MOMENTUM = 0.9
 
 def conv3x3(filters, stride=1):
     """A 3x3 Conv2D layer with 'same' padding"""
@@ -188,16 +188,23 @@ class HighResolutionFusion(layers.Layer):
             for j in range(self.num_inputs):
                 if j > i:
                     fuse_layer.append(keras.Sequential([
-                        layers.Conv2DTranspose(
+                        # layers.Conv2DTranspose(
+                        #     self.filters[i],
+                        #     2**(j-i),
+                        #     strides=2**(j-i),
+                        # ),
+                        # layers.BatchNormalization(momentum=BN_MOMENTUM),
+                        layers.UpSampling2D(
+                            size=2**(j-i),
+                            interpolation='bilinear',
+                            dtype=tf.float32,
+                        ),
+                        layers.Conv2D(
                             self.filters[i],
-                            2**(j-i),
-                            strides=2**(j-i),
+                            1,
+                            padding='same',
                         ),
                         layers.BatchNormalization(momentum=BN_MOMENTUM),
-                        # layers.UpSampling2D(
-                        #     size=2**(j-i),
-                        #     interpolation='bilinear'
-                        # ),
                     ]))
                 elif j == i:
                     fuse_layer.append(keras.Sequential([
@@ -281,7 +288,7 @@ class HighResolutionModule(layers.Layer):
         if self.num_branches != len(self.blocks):
             err_msg = (f'NUM_BRANCHES {self.num_branches} !='
                         f'NUM_BLOCKS {len(self.blocks)}')
-            raise ValueError()
+            raise ValueError(err_msg)
 
     def build(self, input_shape):
         if not isinstance(input_shape,list):
