@@ -74,3 +74,6 @@ def lr_mul_inv(epoch, lr):
 
 def low_lr(epoch, lr) :
     return 1e-5
+
+def zero_lr(epoch, lr) :
+    return 0.0

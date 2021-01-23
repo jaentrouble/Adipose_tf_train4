@@ -130,3 +130,4 @@ logs/
 savedmodels/
 converted_model/
 data/
+tflite_models/
