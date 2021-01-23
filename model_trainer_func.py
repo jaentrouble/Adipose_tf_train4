@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import mixed_precision
+from tensorflow.keras import mixed_precision, layers
 import time
 from custom_tqdm import TqdmNotebookCallback
 from tqdm.keras import TqdmCallback
