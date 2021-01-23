@@ -138,7 +138,7 @@ def high_resolution_fusion(
 
     Arguments
     ---------
-    inputs : keras.Input or Tensor
+    inputs : List of keras.Input or Tensor
         Input tensor
     filters : list
         Number of filters(C) per outputs. len(filters) == output Tensor #
@@ -236,7 +236,7 @@ def high_resolution_module(
 
     Arguments
     ---------
-    inputs : keras.Input or Tensor
+    inputs : List of keras.Input or Tensor
         Input tensor
     filters : list
         Number of filters(C) per branches. len(filters) == output Tensor #
