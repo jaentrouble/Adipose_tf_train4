@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras.mixed_precision import experimental as mixed_precision
+from tensorflow.keras import mixed_precision
 import time
 from custom_tqdm import TqdmNotebookCallback
 from tqdm.keras import TqdmCallback
@@ -20,6 +20,9 @@ def AdiposeModel(
     Because of numerical stability, softmax layer should be
     taken out, and use it only when not training.
 
+    Inputs are expected to be uint8 dtype.
+    Rescaling will be performed in this model.
+
     Arguments
     ---------
         image_size : tuple
@@ -31,8 +34,11 @@ def AdiposeModel(
         adipose model : keras.Model
             Using only functional API
     """
-    inputs = keras.Input([image_size[1], image_size[0], 3])
-    raw_out = model_f(inputs)
+    inputs = keras.Input([image_size[1], image_size[0], 3],dtype=tf.uint8)
+    rescaled = layers.experimental.preprocessing.Rescaling(
+        scale=1./255, offset=0, name='255_to_1_rescale'
+    )(inputs)
+    raw_out = model_f(rescaled)
     adipose_model = keras.Model(inputs=inputs, outputs=raw_out,
                                 name='adipose_model')
     return adipose_model
@@ -56,6 +62,7 @@ class AugGenerator():
     X : np.array, dtype= np.uint8
         shape : (HEIGHT, WIDTH, 3)
     Y : np.array, dtype= np.float32
+        shape : (HEIGHT, WIDTH)
     """
     def __init__(self, img, data, img_size):
         """ 
@@ -78,7 +85,6 @@ class AugGenerator():
         self.image = img
         self.data = data
         self.n = len(data)
-        self.output_size = img_size
         self.aug = A.Compose([
             A.OneOf([
                 A.RandomGamma((40,200),p=1),
@@ -91,7 +97,7 @@ class AugGenerator():
             A.InvertImg(p=0.5),
             A.VerticalFlip(p=0.5),
             A.RandomRotate90(p=1),
-            A.Resize(img_size[0], img_size[1]),
+            A.Resize(img_size[1], img_size[0]),
         ],
         )
         for datum in data:
@@ -116,12 +122,15 @@ class AugGenerator():
         crop_max = (min(datum['size'][0],x_max+random.randrange(5,30)),
                     min(datum['size'][1],y_max+random.randrange(5,30)))
         new_mask = np.zeros(np.subtract(crop_max, crop_min), dtype=np.float32)
-        xx, yy = np.array(datum['mask'],dtype=np.int32)
+        xx, yy = np.array(datum['mask'],dtype=np.int)
         m_xx = xx - crop_min[0]
         m_yy = yy - crop_min[1]
+        # (Width, Height)
         new_mask[m_xx,m_yy] = 1
+        # (Height, Width)
+        new_mask = np.swapaxes(new_mask, 0, 1)
 
-        if np.any(np.not_equal(image.shape[:2], np.flip(datum['size']))):
+        if np.any(np.not_equal(image.shape[1::-1], datum['size'])):
             row_ratio = image.shape[0] / datum['size'][1]
             col_ratio = image.shape[1] / datum['size'][0]
             cx_min = int(col_ratio*crop_min[0])
@@ -130,13 +139,9 @@ class AugGenerator():
             cx_max = int(col_ratio*crop_max[0])
             cy_max = int(row_ratio*crop_max[1])
 
-            cropped_image = np.swapaxes(image[cy_min:cy_max,cx_min:cx_max],0,1)
+            cropped_image = image[cy_min:cy_max,cx_min:cx_max]
         else:
-            cropped_image = np.swapaxes(
-                image[crop_min[1]:crop_max[1],crop_min[0]:crop_max[0]],
-                0, 
-                1,
-            )
+            cropped_image = image[crop_min[1]:crop_max[1],crop_min[0]:crop_max[0]]
         
         distorted = self.aug(
             image=cropped_image,
@@ -168,9 +173,19 @@ class ValGenerator(AugGenerator):
             IMPORTANT : (WIDTH, HEIGHT)
         """
         super().__init__(img, data, img_size)
-        self.aug = A.Resize(img_size[0], img_size[1])
+        self.aug = A.Resize(img_size[1], img_size[0])
 
-def create_train_dataset(img, data, img_size, batch_size, val_data=False):
+def create_train_dataset(
+    img,
+    data,
+    img_size,
+    batch_size,
+    val_data=False
+):
+    """
+    NOTE:
+        img_size : (WIDTH, HEIGHT)
+    """
     autotune = tf.data.experimental.AUTOTUNE
     if val_data:
         generator = ValGenerator(img, data, img_size)
@@ -180,8 +195,8 @@ def create_train_dataset(img, data, img_size, batch_size, val_data=False):
         generator,
         output_types=(tf.uint8, tf.float32),
         output_shapes=(
-            tf.TensorShape([img_size[0],img_size[1],3]), 
-            tf.TensorShape(img_size)
+            tf.TensorShape([img_size[1],img_size[0],3]), 
+            tf.TensorShape([img_size[1],img_size[0]])
         ),
     )
     dataset = dataset.shuffle(min(len(data),1000))
@@ -192,22 +207,6 @@ def create_train_dataset(img, data, img_size, batch_size, val_data=False):
     return dataset
 
 
-def get_model(model_f):
-    """
-    To get model only and load weights.
-    """
-    # policy = mixed_precision.Policy('mixed_float16')
-    # mixed_precision.set_policy(policy)
-    inputs = keras.Input((200,200,3))
-    test_model = AdiposeModel(inputs, model_f)
-    test_model.compile(
-        optimizer='adam',
-        loss=keras.losses.BinaryCrossentropy(from_logits=True),
-        metrics=[
-            keras.metrics.BinaryAccuracy(threshold=0.1),
-        ]
-    )
-    return test_model
 
 class ValFigCallback(keras.callbacks.Callback):
     def __init__(self, val_ds, logdir):
@@ -269,16 +268,15 @@ def run_training(
         notebook = True,
     ):
     """
-    val_data : (X_val, Y_val) tuple
+    img_size : (WIDTH, HEIGHT)
     """
     if mixed_float:
         policy = mixed_precision.Policy('mixed_float16')
-        mixed_precision.set_policy(policy)
+        mixed_precision.set_global_policy(policy)
     
     st = time.time()
 
-    inputs = keras.Input((200,200,3))
-    mymodel = AdiposeModel(inputs, model_f)
+    mymodel = AdiposeModel(img_size, model_f)
     loss = keras.losses.BinaryCrossentropy(from_logits=True)
     mymodel.compile(
         optimizer='adam',
@@ -333,8 +331,6 @@ def run_training(
 
 
     print('Took {} seconds'.format(time.time()-st))
-
-    mymodel.evaluate(val_ds, steps=1000)
 
 if __name__ == '__main__':
     import os

@@ -1,6 +1,6 @@
 import numpy as np
-from model_trainer import run_training
-import adipose_models
+from model_trainer_func import run_training
+import adipose_models_func
 import model_lr
 import argparse
 import tensorflow as tf
@@ -61,11 +61,10 @@ test_num = len(data) // 10
 # To make sure data are chosen randomly between data groups
 random.shuffle(data)
 
-data_train = data[:-2*test_num]
-data_val = data[-2*test_num:-test_num]
-data_test = data[-test_num:]
+data_train = data[:-test_num]
+data_val = data[-test_num:]
 
-model_f = getattr(adipose_models, args.model)
+model_f = getattr(adipose_models_func, args.model)
 lr_f = getattr(model_lr, args.lr)
 name = args.name
 epochs = int(args.epochs)
