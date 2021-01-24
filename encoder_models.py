@@ -62,7 +62,7 @@ def hr_4_3_down2(inputs):
         name='bottleneck2'
     )
     x = clayers.high_resolution_module(
-        inputs=x,
+        inputs=[x],
         filters=[32],
         blocks=[3],
         name='HR_0'
