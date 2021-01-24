@@ -24,6 +24,21 @@ def nc(name, postfix):
     else:
         return '_'.join([name,postfix])
 
+def upscale_block(inputs, filters, name=None):
+    upsampled = upsampling_layer(
+        inputs,
+        size=2,
+        interpolation='bilinear',
+        dtype=tf.float32,
+        name=nc(name, 'upsample')
+    )
+    outputs = basic_block(
+        upsampled,
+        filters,
+        name=nc(name,'basic_block')
+    )
+    return outputs
+
 
 def conv3x3(inputs, filters, stride=1, name=None):
     """A 3x3 Conv2D layer with 'same' padding"""
@@ -62,7 +77,7 @@ def basic_block(inputs, filters, stride=1, name=None):
         residual = conv2d_layer(
             inputs,
             filters,
-            1,
+            stride,
             strides=stride,
             padding='same',
             name=nc(name,'res_downsample')
@@ -74,7 +89,7 @@ def basic_block(inputs, filters, stride=1, name=None):
     x = norm_layer(x, name=nc(name, 'norm0'))
     x = relu_layer(x, name=nc(name, 'relu0'))
 
-    x = conv3x3(inputs, filters, name=nc(name,'conv1'))
+    x = conv3x3(x, filters, name=nc(name,'conv1'))
     x = norm_layer(x, name=nc(name, 'norm1'))
 
     x = add_layer([x,residual], name=nc(name, 'res_add'))
