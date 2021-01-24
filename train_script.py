@@ -23,8 +23,8 @@ parser.add_argument('-mg','--memorygrow', dest='mem_growth',
 parser.add_argument('-l','--load',dest='load',default=None)
 args = parser.parse_args()
 
-encoder_f = encoder_models.hr_5_3_0
-decoder_f = decoder_models.branch_3_64
+encoder_f = encoder_models.hr_4_3_down2
+decoder_f = decoder_models.branch_3_64_up2
 
 if args.mem_growth:
     gpus = tf.config.experimental.list_physical_devices('GPU')
