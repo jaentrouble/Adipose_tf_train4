@@ -11,7 +11,6 @@ from pathlib import Path
 import random
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-m','--model', dest='model')
 parser.add_argument('-lr', dest='lr')
 parser.add_argument('-n','--name', dest='name')
 parser.add_argument('-e','--epochs', dest='epochs')
@@ -65,7 +64,7 @@ random.shuffle(data)
 data_train = data[:-test_num]
 data_val = data[-test_num:]
 
-model_f = getattr(adipose_models_func, args.model)
+model_f = adipose_models_func.hr_5_3_0_func
 lr_f = getattr(model_lr, args.lr)
 name = args.name
 epochs = int(args.epochs)

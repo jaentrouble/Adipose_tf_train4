@@ -2,14 +2,14 @@ def lr_no_update(epoch, lr):
     return 0.0
 
 def lr_step(epoch, lr):
-    if epoch<=10:
-        lr = 0.2
-    elif epoch<=20 :
-        lr = 0.02
-    elif epoch<=50:
+    if epoch<=5:
         lr = 0.01
+    elif epoch<=10 :
+        lr = 1e-3
+    elif epoch<=25:
+        lr = 1e-4
     else :
-        lr = 0.005
+        lr = 1e-5
     return lr
 
 def lr_step2(epoch, lr):
