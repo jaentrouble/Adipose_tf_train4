@@ -25,12 +25,13 @@ def nc(name, postfix):
         return '_'.join([name,postfix])
 
 def upscale_block(inputs, filters, name=None):
-    upsampled = layers.UpSampling2D(
+    upsampled = upsampling_layer(
+        inputs,
         size=2,
         interpolation='bilinear',
         dtype=tf.float32,
         name=nc(name, 'upsample')
-    )(inputs)
+    )
     outputs = basic_block(
         upsampled,
         filters,
@@ -76,7 +77,7 @@ def basic_block(inputs, filters, stride=1, name=None):
         residual = conv2d_layer(
             inputs,
             filters,
-            1,
+            2,
             strides=stride,
             padding='same',
             name=nc(name,'res_downsample')
