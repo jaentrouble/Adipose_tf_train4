@@ -309,7 +309,10 @@ class ValFigCallback(keras.callbacks.Callback):
         fig = plt.figure()
         for i in range(3):
             ax = fig.add_subplot(3,3,3*i+1)
-            img = sample_x[i]
+            img = sample_x['image'][i]
+            mouse = sample_x['mouse'][i]
+            img[max(0,mouse[1]-5):mouse[1]+5,
+                max(0,mouse[0]-5):mouse[0]+5] = [255,0,0]
             ax.imshow(img)
             ax = fig.add_subplot(3,3,3*i+2)
             true_mask = sample_y[i]
