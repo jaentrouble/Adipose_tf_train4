@@ -13,7 +13,8 @@ import numpy as np
 
 def AdiposeModel(
     image_size,
-    model_f,
+    encoder_f,
+    decoder_f,
 ):
     """AdiposeModel
 
@@ -27,8 +28,10 @@ def AdiposeModel(
     ---------
         image_size : tuple
             Format (WIDTH, HEIGHT)
-        model_function : function that takes keras.Input and returns
-        output tensor of logits
+        encoder_f : a function that takes keras.Input and returns
+        a feature map of the entire image
+        decoder_f : a function that takes a feature map and mouse position
+        and returns a mask indicating the cell pointed by the mouse
     Return
     ------
         adipose model : keras.Model

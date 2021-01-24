@@ -5,7 +5,7 @@ import custom_layers as clayers
 
 # Get inputs and return outputs
 
-def hr_5_3_0_func(inputs):
+def hr_5_3_0(inputs):
     x = [inputs]
     x = clayers.high_resolution_module(
         inputs=x,
@@ -41,13 +41,7 @@ def hr_5_3_0_func(inputs):
         inputs=x,
         filters=[8],
         name='FinalFusion'
-    )
-    x = layers.Conv2D(
-        1,
-        1,
-        padding='same',
-        name='Conv_squeeze'
-    )(x[0])
-    x = tf.squeeze(x,axis=-1)
+    )(x)
+    x = tf.squeeze(x[0],axis=-1)
     outputs = layers.Activation('linear', dtype='float32')(x)
     return outputs
