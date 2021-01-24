@@ -151,7 +151,7 @@ class AugGenerator():
         size_x, size_y = datum['size']
 
         min_half_ratio = 1./4
-        max_half_ratio = 1./2
+        max_half_ratio = 1.
         min_half_x = int(size_x * min_half_ratio)
         max_half_x = int(size_x * max_half_ratio)
         
