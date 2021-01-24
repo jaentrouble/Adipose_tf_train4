@@ -39,9 +39,8 @@ def hr_5_3_0(inputs):
     )
     x = clayers.high_resolution_fusion(
         inputs=x,
-        filters=[8],
-        name='FinalFusion'
-    )(x)
-    x = tf.squeeze(x[0],axis=-1)
-    outputs = layers.Activation('linear', dtype='float32')(x)
+        filters=[64],
+        name='encoder_Fusion'
+    )
+    outputs = layers.Activation('linear', dtype='float32')(x[0])
     return outputs
