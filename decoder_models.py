@@ -47,7 +47,8 @@ def branch_3_64(inputs):
         mouse_pos Format: (x, y)
     """
     encoded_image, mouse_pos = inputs
-    image_shape = encoded_image.shape[:2]
+    # Image shape (batch, h, w, c)
+    image_shape = encoded_image.shape[1:3]
     heatmap = gaussian_heatmap(mouse_pos,image_shape,sigma=10)
     heatmap_expand = heatmap[...,tf.newaxis]
 
