@@ -20,6 +20,7 @@ parser.add_argument('-mf','--mixedfloat', dest='mixed_float',
                     action='store_true',default=False)
 parser.add_argument('-mg','--memorygrow', dest='mem_growth',
                     action='store_true',default=False)
+parser.add_argument('-l','--load',dest='load',default=None)
 args = parser.parse_args()
 
 if args.mem_growth:
@@ -81,6 +82,7 @@ kwargs['train_data'] = data_train
 kwargs['val_data'] = data_val
 kwargs['img'] = img
 kwargs['img_size'] = (200,200)
+kwargs['load_path'] = args.load
 kwargs['mixed_float'] = mixed_float
 kwargs['notebook'] = False
 

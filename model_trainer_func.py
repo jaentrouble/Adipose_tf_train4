@@ -264,6 +264,7 @@ def run_training(
         val_data,
         img,
         img_size,
+        load_path = None,
         mixed_float = True,
         notebook = True,
     ):
@@ -285,6 +286,9 @@ def run_training(
             keras.metrics.BinaryAccuracy(threshold=0.5),
         ]
     )
+    if load_path is not None:
+        mymodel.load_weights(load_path)
+        print('loaded from '+load_path)
 
     logdir = 'logs/fit/' + name
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
