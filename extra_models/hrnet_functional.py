@@ -77,7 +77,7 @@ def basic_block(inputs, filters, stride=1, name=None):
         residual = conv2d_layer(
             inputs,
             filters,
-            2,
+            stride,
             strides=stride,
             padding='same',
             name=nc(name,'res_downsample')
@@ -89,7 +89,7 @@ def basic_block(inputs, filters, stride=1, name=None):
     x = norm_layer(x, name=nc(name, 'norm0'))
     x = relu_layer(x, name=nc(name, 'relu0'))
 
-    x = conv3x3(inputs, filters, name=nc(name,'conv1'))
+    x = conv3x3(x, filters, name=nc(name,'conv1'))
     x = norm_layer(x, name=nc(name, 'norm1'))
 
     x = add_layer([x,residual], name=nc(name, 'res_add'))
