@@ -6,7 +6,7 @@ def lr_step(epoch, lr):
         lr = 0.01
     elif epoch<=10 :
         lr = 1e-3
-    elif epoch<=50:
+    elif epoch<=25:
         lr = 1e-4
     else :
         lr = 1e-5
