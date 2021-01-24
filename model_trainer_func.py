@@ -328,7 +328,8 @@ class ValFigCallback(keras.callbacks.Callback):
             tf.summary.image('val prediction', image, step=epoch)
 
 def run_training(
-        model_f, 
+        encoder_f,
+        decoder_f,
         lr_f, 
         name, 
         epochs, 
@@ -350,7 +351,7 @@ def run_training(
     
     st = time.time()
 
-    mymodel = AdiposeModel(img_size, model_f)
+    mymodel = AdiposeModel(img_size, encoder_f, decoder_f)
     loss = keras.losses.BinaryCrossentropy(from_logits=True)
     mymodel.compile(
         optimizer='adam',
@@ -359,6 +360,7 @@ def run_training(
             keras.metrics.BinaryAccuracy(threshold=0.5),
         ]
     )
+    mymodel.summary()
     if load_path is not None:
         mymodel.load_weights(load_path)
         print('loaded from '+load_path)

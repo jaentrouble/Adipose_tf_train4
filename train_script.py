@@ -1,6 +1,7 @@
 import numpy as np
 from model_trainer_func import run_training
-import adipose_models_func
+import encoder_models
+import decoder_models
 import model_lr
 import argparse
 import tensorflow as tf
@@ -11,7 +12,6 @@ from pathlib import Path
 import random
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-m','--model', dest='model')
 parser.add_argument('-lr', dest='lr')
 parser.add_argument('-n','--name', dest='name')
 parser.add_argument('-e','--epochs', dest='epochs')
@@ -22,6 +22,9 @@ parser.add_argument('-mg','--memorygrow', dest='mem_growth',
                     action='store_true',default=False)
 parser.add_argument('-l','--load',dest='load',default=None)
 args = parser.parse_args()
+
+encoder_f = encoder_models.hr_5_3_0
+decoder_f = decoder_models.branch_3_64
 
 if args.mem_growth:
     gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -65,7 +68,6 @@ random.shuffle(data)
 data_train = data[:-test_num]
 data_val = data[-test_num:]
 
-model_f = getattr(adipose_models_func, args.model)
 lr_f = getattr(model_lr, args.lr)
 name = args.name
 epochs = int(args.epochs)
@@ -73,7 +75,8 @@ mixed_float = args.mixed_float
 batch_size = int(args.batch)
 
 kwargs = {}
-kwargs['model_f'] = model_f
+kwargs['encoder_f'] = encoder_f
+kwargs['decoder_f'] = decoder_f
 kwargs['lr_f'] = lr_f
 kwargs['name'] = name
 kwargs['epochs'] = epochs
