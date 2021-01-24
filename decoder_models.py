@@ -15,6 +15,7 @@ def gaussian_heatmap(pos, shape, sigma=10):
     Arguments
     ---------
     pos : tf.Tensor
+        Shape : (Batch, 2)
         Format : (WIDTH, HEIGHT)
     shape : tf.Tensor
         (HEIGHT, WIDTH)
@@ -24,15 +25,15 @@ def gaussian_heatmap(pos, shape, sigma=10):
     heatmap : tf.Tensor
         shape : (HEIGHT, WIDTH)
     """
+    # Shape : (batch,2)
     pos = tf.cast(pos,tf.float32)
-    x = pos[0]
-    y = pos[1]
+    # Shape : (height, width, 2)
     coordinates = tf.stack(tf.meshgrid(
         tf.range(shape[0],dtype=tf.float32),
         tf.range(shape[1],dtype=tf.float32),
         indexing='ij',
     ), axis=-1)
-    keypoint = tf.reshape([y,x],(1,1,2))
+    keypoint = tf.reshape(pos[...,::-1],(-1,1,1,2))
     heatmap = tf.exp(-tf.reduce_sum((coordinates-keypoint)**2,axis=-1)\
                         /(2*sigma**2))
 
