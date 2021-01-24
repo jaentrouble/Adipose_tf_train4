@@ -7,7 +7,6 @@ import model_lr
 from model_trainer_func import AdiposeModel, create_train_dataset
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-m','--model', dest='model')
 parser.add_argument('-n','--name', dest='name')
 parser.add_argument('--load',dest='load')
 args = parser.parse_args()
@@ -20,7 +19,7 @@ if gpus:
     except RuntimeError as e:
         print(e)
 
-model_f = getattr(adipose_models_func, args.model)
+model_f = adipose_models_func.hr_5_3_0_func
 name = args.name
 load_model_path = args.load
 img_size = (200,200)
