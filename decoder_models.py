@@ -14,9 +14,9 @@ def gaussian_heatmap(pos, shape, sigma=10):
 
     Arguments
     ---------
-    pos : tuple of int
+    pos : tf.Tensor
         Format : (WIDTH, HEIGHT)
-    shape : tuple of int
+    shape : tf.Tensor
         (HEIGHT, WIDTH)
 
     Returns
@@ -24,6 +24,7 @@ def gaussian_heatmap(pos, shape, sigma=10):
     heatmap : tf.Tensor
         shape : (HEIGHT, WIDTH)
     """
+    pos = tf.cast(pos,tf.float32)
     x = pos[0]
     y = pos[1]
     coordinates = tf.stack(tf.meshgrid(

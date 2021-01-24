@@ -37,12 +37,34 @@ def AdiposeModel(
         adipose model : keras.Model
             Using only functional API
     """
-    inputs = keras.Input([image_size[1], image_size[0], 3],dtype=tf.uint8)
+    # Encoder model
+    image_input = keras.Input([image_size[1], image_size[0], 3],
+                            name='image_input',dtype=tf.uint8)
     rescaled = layers.experimental.preprocessing.Rescaling(
         scale=1./255, offset=0, name='255_to_1_rescale'
-    )(inputs)
-    raw_out = model_f(rescaled)
-    adipose_model = keras.Model(inputs=inputs, outputs=raw_out,
+    )(image_input)
+    encoded_image = encoder_f(rescaled)
+    encoder = keras.Model(inputs=image_input, outputs=encoded_image,
+                          name='encoder')
+
+    # Decoder model
+    feature_input = keras.Input(tensor=encoded_image,
+                                name='feature_input')
+    mouse_input = keras.Input([2],name='mouse_input')
+    mask = decoder_f([feature_input, mouse_input])
+    decoder = keras.Model(inputs=[feature_input, mouse_input],
+                          outputs=mask, name='decoder')
+
+    # Final model
+    # Divide encoder/decoder so that decoder can be used seperately
+    image_input = keras.Input([image_size[1], image_size[0], 3],
+                            name='image',dtype=tf.uint8)
+    encoded_image = encoder(image_input)
+    mouse_input = keras.Input([2],name='mouse')
+    mask = decoder([encoded_image,mouse_input])
+
+    adipose_model = keras.Model(inputs=[image_input, mouse_input], 
+                                outputs=mask,
                                 name='adipose_model')
     return adipose_model
 
@@ -62,8 +84,14 @@ class AugGenerator():
         THE OUTPUT IMAGE WILL BE (HEIGHT, WIDTH)
     return
     ------
-    X : np.array, dtype= np.uint8
-        shape : (HEIGHT, WIDTH, 3)
+    X : dictionary
+        'image'
+            np.array, dtype= np.uint8
+            shape : (HEIGHT, WIDTH, 3)
+        'mouse'
+            np.array, dtype = np.int64
+            shape : (2,)
+            Format : (X, Y)
     Y : np.array, dtype= np.float32
         shape : (HEIGHT, WIDTH)
     """
@@ -102,6 +130,7 @@ class AugGenerator():
             A.RandomRotate90(p=1),
             A.Resize(img_size[1], img_size[0]),
         ],
+        keypoint_params=A.KeypointParams(format='xy')
         )
         for datum in data:
             datum['mask_min'] = np.min(datum['mask'], axis=1)
@@ -119,11 +148,20 @@ class AugGenerator():
         image = self.image[datum['image']]
         x_min, y_min = datum['mask_min']
         x_max, y_max = datum['mask_max']
+        size_x, size_y = datum['size']
 
-        crop_min = (max(0, x_min-random.randrange(1,10)),
-                    max(0, y_min-random.randrange(1,10)))
-        crop_max = (min(datum['size'][0],x_max+random.randrange(1,10)),
-                    min(datum['size'][1],y_max+random.randrange(1,10)))
+        min_half_ratio = 1./4
+        max_half_ratio = 1./2
+        min_half_x = int(size_x * min_half_ratio)
+        max_half_x = int(size_x * max_half_ratio)
+        
+        min_half_y = int(size_y * min_half_ratio)
+        max_half_y = int(size_y * max_half_ratio)
+
+        crop_min = (max(0, x_min-random.randrange(min_half_x,max_half_x)),
+                    max(0, y_min-random.randrange(min_half_y,max_half_y)))
+        crop_max = (min(size_x,x_max+random.randrange(min_half_x,max_half_x)),
+                    min(size_y,y_max+random.randrange(min_half_y,max_half_y)))
         new_mask = np.zeros(np.subtract(crop_max, crop_min), dtype=np.float32)
         xx, yy = np.array(datum['mask'],dtype=np.int)
         m_xx = xx - crop_min[0]
@@ -133,25 +171,41 @@ class AugGenerator():
         # (Height, Width)
         new_mask = np.swapaxes(new_mask, 0, 1)
 
-        if np.any(np.not_equal(image.shape[1::-1], datum['size'])):
-            row_ratio = image.shape[0] / datum['size'][1]
-            col_ratio = image.shape[1] / datum['size'][0]
-            cx_min = int(col_ratio*crop_min[0])
-            cy_min = int(row_ratio*crop_min[1])
-            
-            cx_max = int(col_ratio*crop_max[0])
-            cy_max = int(row_ratio*crop_max[1])
+        mouse_idx = random.randrange(len(xx))
+        mouse = np.array([m_xx[mouse_idx], m_yy[mouse_idx]])
 
-            cropped_image = image[cy_min:cy_max,cx_min:cx_max]
+        if np.any(np.not_equal(image.shape[1::-1], datum['size'])):
+            row_ratio = image.shape[0] / size_y
+            col_ratio = image.shape[1] / size_x
         else:
-            cropped_image = image[crop_min[1]:crop_max[1],crop_min[0]:crop_max[0]]
+            row_ratio = 1
+            col_ratio = 1
+
+        mouse = mouse * [col_ratio, row_ratio]
+        mouse = mouse.astype(np.int64)
+
+        cx_min = int(col_ratio*crop_min[0])
+        cy_min = int(row_ratio*crop_min[1])
         
+        cx_max = int(col_ratio*crop_max[0])
+        cy_max = int(row_ratio*crop_max[1])
+
+        cropped_image = image[cy_min:cy_max,cx_min:cx_max]
+
         distorted = self.aug(
             image=cropped_image,
-            mask =new_mask
+            mask =new_mask,
+            keypoints=[mouse]
         )
 
-        return distorted['image'], distorted['mask']
+        X = {
+            'image':distorted['image'],
+            'mouse':distorted['keypoints'][0]
+        }
+
+        Y = distorted['mask']
+
+        return X, Y
 
 class ValGenerator(AugGenerator):
     """Same as AugGenerator, but without augmentation.
@@ -176,7 +230,12 @@ class ValGenerator(AugGenerator):
             IMPORTANT : (WIDTH, HEIGHT)
         """
         super().__init__(img, data, img_size)
-        self.aug = A.Resize(img_size[1], img_size[0])
+        self.aug = A.Compose([
+            A.Resize(img_size[1], img_size[0]),
+        ],
+        keypoint_params=A.KeypointParams(format='xy'),
+        )
+        
 
 def create_train_dataset(
     img,
@@ -196,10 +255,18 @@ def create_train_dataset(
         generator = AugGenerator(img, data, img_size)
     dataset = tf.data.Dataset.from_generator(
         generator,
-        output_types=(tf.uint8, tf.float32),
-        output_shapes=(
-            tf.TensorShape([img_size[1],img_size[0],3]), 
-            tf.TensorShape([img_size[1],img_size[0]])
+        output_signature=(
+            {
+                'image':tf.TensorSpec(
+                    shape=[img_size[1],img_size[0],3],
+                    dtype=tf.uint8,),
+                'mouse':tf.TensorSpec(
+                    shape=[2,],
+                    dtype=tf.int64,),
+            },
+            tf.TensorSpec(
+                shape=[img_size[1],img_size[0]],
+                dtype=tf.float32,)
         ),
     )
     dataset = dataset.shuffle(min(len(data),1000))
