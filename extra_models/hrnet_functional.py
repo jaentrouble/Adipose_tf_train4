@@ -24,6 +24,20 @@ def nc(name, postfix):
     else:
         return '_'.join([name,postfix])
 
+def upscale_block(inputs, filters, name=None):
+    upsampled = layers.UpSampling2D(
+        size=2,
+        interpolation='bilinear',
+        dtype=tf.float32,
+        name=nc(name, 'upsample')
+    )(inputs)
+    outputs = basic_block(
+        upsampled,
+        filters,
+        name=nc(name,'basic_block')
+    )
+    return outputs
+
 
 def conv3x3(inputs, filters, stride=1, name=None):
     """A 3x3 Conv2D layer with 'same' padding"""

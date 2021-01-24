@@ -41,15 +41,20 @@ def gaussian_heatmap(pos, shape, sigma=10):
 
 
 
-def branch_3_64(inputs):
+def branch_3_64_up2(inputs):
     """
+    Expects featuremap to be 1/4 (not area) of the original size
+
     inputs: list of tensors
         [encoded_image, mouse_pos]
         mouse_pos Format: (x, y)
     """
     encoded_image, mouse_pos = inputs
-    # Image shape (batch, h, w, c)
+    # Encoded_image.shape (batch, h, w, c)
     image_shape = encoded_image.shape[1:3]
+    mouse_pos = tf.cast(mouse_pos, tf.float32)
+    # Divide by 4 to match featuremap size
+    mouse_pos = mouse_pos / 4
     heatmap = gaussian_heatmap(mouse_pos,image_shape,sigma=10)
     heatmap_expand = heatmap[...,tf.newaxis]
 
@@ -60,6 +65,16 @@ def branch_3_64(inputs):
         filters=64,
         blocks=3,
         name='decoder_branch'
+    )
+    x = clayers.upscale_block(
+        inputs=x,
+        filters=64,
+        name='upscale1'
+    )
+    x = clayers.upscale_block(
+        inputs=x,
+        filters=64,
+        name='upscale2'
     )
     x = layers.Conv2D(
         filters=1,
