@@ -306,7 +306,7 @@ class ValFigCallback(keras.callbacks.Callback):
         sample_x = sample[0]
         sample_y = sample[1]
         predict = self.model(sample_x, training=False).numpy()
-        fig = plt.figure()
+        fig = plt.figure(figsize=(20,20))
         for i in range(3):
             ax = fig.add_subplot(3,3,3*i+1)
             img = sample_x['image'][i]
