@@ -117,10 +117,10 @@ class AugGenerator():
         x_min, y_min = datum['mask_min']
         x_max, y_max = datum['mask_max']
 
-        crop_min = (max(0, x_min-random.randrange(5,30)),
-                    max(0, y_min-random.randrange(5,30)))
-        crop_max = (min(datum['size'][0],x_max+random.randrange(5,30)),
-                    min(datum['size'][1],y_max+random.randrange(5,30)))
+        crop_min = (max(0, x_min-random.randrange(1,10)),
+                    max(0, y_min-random.randrange(1,10)))
+        crop_max = (min(datum['size'][0],x_max+random.randrange(1,10)),
+                    min(datum['size'][1],y_max+random.randrange(1,10)))
         new_mask = np.zeros(np.subtract(crop_max, crop_min), dtype=np.float32)
         xx, yy = np.array(datum['mask'],dtype=np.int)
         m_xx = xx - crop_min[0]
